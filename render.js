@@ -86,7 +86,7 @@ function renderType(map) {
       if (completed.length === mapTypes.length) {
         phantom.exit();
       }
-
+    //Two-second delay to make sure the page is rendered
     },2000);
   });
 
