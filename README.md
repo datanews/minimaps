@@ -125,6 +125,26 @@ In this version, the background is white, the district is black, and the rectang
 
 You could also modify the code more substantially to, say, make the rectangles circles, or do other fun things.
 
+# Previewing a specific map
+
+If you want to debug `generate.html`, you can use it to preview a specific map by loading it with a `state`, `type`, and `district`:
+
+    generate.html?state=TX&type=house&district=5
+
+This will show you that map.  It assumes your district is a number (and is also a number in d.properties.WHATEVER in your GeoJSON).  If it's not:
+
+    generate.html?state=TX&type=county&district=Austin
+
+Then you need to change:
+
+    district = +$.url.param("district");
+
+to
+
+    district = $.url.param("district");
+
+so it doesn't get converted to a number.
+
 # Doing this for something besides districts in states
 
 There's nothing that says the "state" has to be a state.  If you want to do swamps in Middle Earth, that's fine too.  "state" just means the outer, background shape.  If you have:
