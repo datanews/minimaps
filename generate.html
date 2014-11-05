@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      /* Style for background layer (currently white) */
+      g#background path {
+        stroke: none;
+        fill: #fff;
+      }
+
+      /* Style for the district being highlighted (currently black) */
+      g.district path {
+        fill: #000;
+        stroke: none;
+      }
+
+      /* Style for the rectangle around a district (currently 1px red) */
+      rect {
+        stroke-width: 1px;
+        stroke: #e51133;
+        fill: none;
+        shape-rendering: crispEdges;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        outline: 0;
+      }
+
+      g.district {
+        display: none;
+      }
+
+      g.district.show {
+        display: block;
+      }
+
+      body.statewide rect {
+        display: none;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      g#background path {
+        display: none;
+      }
+
+      g#background.state path.state {
+        display: block;
+      }
+
+      g#background.state path.city {
+        display: none;
+      }
+
+      g#background.city path.state {
+        display: none;
+      }
+
+      g#background.city path.city {
+        display: block;
+      }
+
+      g#background.statewide path {
+        display: none;
+      }
+
+    </style>
+  </head>
+  <body>
+    <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <script src="http://d3js.org/queue.v1.min.js"></script>
+    <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="http://project.wnyc.org/assets/js/jquery.url.min.js"></script>
+    <script>
+
+      //Expect a URL like index.html?state=NY&type=house
+      //Optional: &district=1 to highlight district 1
+
+      
+      //Get URL params
+      var type = $.url.param("type"),
+          state = $.url.param("state"),
+          district = +$.url.param("district");
+
+      //NY maps are 120/96, NJ maps are 120x137
+      var width = 120,
+          height = (state == "NJ" ? 137 : 96);
+
+      //Which districts should be zoomed in to NYC?
+      var districtsInNYC = {
+            "house": d3.range(5,16),
+            "state-senate": d3.range(10,35).concat([36]),
+            "state-assembly": d3.range(23,88)
+          };
+
+      //Initialize stuff
+      var groups,
+          projections = {},
+          paths = {},
+          backgrounds = {},
+          //GeoJSON features for districts need a numeric property
+          //called "di" with the district number
+          //Change this to use a different property name
+          propName = "di";
+
+
+      //Projections by state
+      if (state == "NJ") {
+
+        projections.state = d3.geo.mercator()
+          .scale(2000.49687855884) //NJ statewide scale
+          .center([-74.7312335,40.15382869170064]) //projection center
+          .translate([width/2,height/2])
+
+      } else if (state == "NY") {
+
+        projections.state = d3.geo.mercator()
+            .scale(720) //NY statewide scale
+            .center([-75.77004050000001,42.788207687920305]) //projection center
+            .translate([width/2,height/2])
+
+        //Separate projection for NYC area
+        projections.city = d3.geo.mercator()
+            .scale(8000) //NYC area scale
+            .center([-73.97779999999999,40.70615417278643]) //projection center
+            .translate([width/2,height/2])
+
+        paths.city = d3.geo.path()
+            .projection(projections.city);
+
+      }
+
+      queue()
+        .defer(d3.json,"geo/"+state+"-"+type+".geojson")
+        .defer(d3.json,"geo/"+state+"-statewide.geojson")
+        .await(function(err,districts,background){
+
+          if (err) {
+            return console.log(err);
+          }
+
+          //Generate paths based on projection
+          paths.state = d3.geo.path()
+              .projection(projections.state);
+
+          var svg = d3.select("body").attr("class",state+" "+type)
+                      .append("svg")
+                        .attr("width",width)
+                        .attr("height",height);
+
+          backgrounds = svg.append("g").attr("id","background");
+
+          backgrounds.append("path")
+            .datum(background.features[0])
+            .attr("class","state")
+            .attr("d",paths.state);
+
+          if (state == "NY") {
+
+            backgrounds.append("path")
+              .datum(background.features[0])
+              .attr("class","city")
+              .attr("d",paths.city);
+
+          }
+
+          districts.features = districts.features.map(function(d){
+              var b = paths.state.bounds(d);
+
+              if (state == "NY" && inNYC(d.properties[propName])) {
+                b = paths.city.bounds(d);
+              }
+
+              //MAAAAAATH
+              //Calculate the dimensions of the red rectangle
+              //Adjust it if it would bleed out of the map
+
+              //Initial width/height
+              var w = b[1][0]-b[0][0],
+                  h = b[1][1]-b[0][1];
+
+              //Expanded to be double the actual bounds, minimum 15px x 15px
+              var wx = Math.max(15,w*2),
+                  hx = Math.max(15,h*2);
+
+              d.properties.x = b[0][0]-((wx-w)/2);
+              d.properties.y = b[0][1]-((hx-h)/2);
+              d.properties.width = wx;
+              d.properties.height = hx;
+
+              //If the rectangle is past left edge, shrink the width
+              if (d.properties.x < 1) {
+
+                d.properties.x = 1;
+
+                d.properties.width = (2*(b[0][0]-d.properties.x))+(b[1][0]-b[0][0]);
+
+              }
+
+              //If the rectangle is past the right edge, shrink the width
+              if (d.properties.x+d.properties.width > width - 1) {
+
+                var xDiff = d.properties.x+d.properties.width - (width - 1);
+
+                d.properties.x += xDiff;
+                d.properties.width -= xDiff*2;
+
+              }
+
+              //If the rectangle is above the top edge, shrink the height
+              if (d.properties.y < 1) {
+
+                d.properties.y = 1;
+
+                d.properties.height = (2*(b[0][1]-d.properties.y))+(b[1][1]-b[0][1]);
+
+              }
+
+              //If the rectangle is below the bottom edge, shrink the height
+              if (d.properties.y+d.properties.height > height - 1) {
+
+                var yDiff = d.properties.y+d.properties.height - (height - 1);
+
+                d.properties.y += yDiff;
+                d.properties.height -= yDiff*2;
+
+              }
+
+              return d;
+
+          });
+
+        //Append individual districts
+        groups = svg.selectAll("g.district")
+           .data(districts.features)
+           .enter()
+           .append("g")
+            .attr("class","district");
+
+        //Black paths for districts
+        groups.append("path")
+           .attr("d",function(d){
+              if (state == "NY" && inNYC(d.properties[propName])) {
+                return paths.city(d);
+              }
+
+              return paths.state(d);
+            });
+
+        //Add red rectangles around districts
+        groups.append("rect")
+          .attr("x",function(d){
+            return d.properties.x;
+          })
+          .attr("y",function(d){
+            return d.properties.y;
+          })
+          .attr("width",function(d){
+            return d.properties.width;
+          })
+          .attr("height",function(d){
+            return d.properties.height;
+          });
+
+        //If they're loading a specific district, show that
+        if (district) {
+          highlight(district);
+        }
+        
+
+      });
+
+      //Highlight a specific district number
+      function highlight(districtNumber) {
+
+        //Choose whether to show the state background, the city background, or no background (for statewide)
+        backgrounds.attr("class",function(){
+
+          if (type == "statewide") {
+            return "statewide";
+          }
+
+          if (type != "statewide" && state == "NY" && inNYC(districtNumber)) {
+            return "city";
+          }
+
+          return "state";
+
+        });
+
+        //Show the feature (or the only feature, for statewide)
+        groups.classed("show",function(d){
+          return d.properties[propName] == districtNumber || type == "statewide";
+        });
+
+      }
+
+      //Is it a NYC area district?
+      function inNYC(districtNumber) {
+        return state == "NY" && type != "statewide" && districtsInNYC[type].indexOf(districtNumber) !== -1;
+      }
+
+    </script>
+  </body>
+</html>
