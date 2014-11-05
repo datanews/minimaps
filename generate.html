@@ -3,19 +3,36 @@
   <head>
     <meta charset="utf-8" />
     <style>
-      /* Style for background layer (currently white) */
+
+      /*
+        CHANGE THIS to give your minimaps a background color behind the map
+      */
+      body {
+        background-color: transparent;
+      }
+
+      /* 
+        Style for background layer
+        CHANGE THIS to make it something other than white
+      */
       g#background path {
         stroke: none;
         fill: #fff;
       }
 
-      /* Style for the district being highlighted (currently black) */
+      /* 
+        Style for the highlighted district
+        CHANGE THIS to make it something other than black
+      */
       g.district path {
         fill: #000;
         stroke: none;
       }
 
-      /* Style for the rectangle around a district (currently 1px red) */
+      /* 
+        Style for the rectangle around the highlighted district
+        CHANGE THIS to make it something other than a sharp 1px red rectangle
+      */
       rect {
         stroke-width: 1px;
         stroke: #e51133;
@@ -88,14 +105,17 @@
           district = +$.url.param("district");
 
       //NY maps are 120/96, NJ maps are 120x137
+      //CHANGE THIS to be the dimensions you want for your PNGs
       var width = 120,
           height = (state == "NJ" ? 137 : 96);
 
       //Which districts should be zoomed in to NYC?
+      //CHANGE THIS for your data
+      //Delete it if you don't need a city-level zoom
       var districtsInNYC = {
-            "house": d3.range(5,16),
-            "state-senate": d3.range(10,35).concat([36]),
-            "state-assembly": d3.range(23,88)
+            "house": d3.range(5,16), //districts 5-15 are in NYC
+            "state-senate": d3.range(10,35).concat([36]), //districts 10-34 and 36 are in NYC
+            "state-assembly": d3.range(23,88) //districts 23-87 are in NYC
           };
 
       //Initialize stuff
@@ -103,31 +123,35 @@
           projections = {},
           paths = {},
           backgrounds = {},
-          //GeoJSON features for districts need a numeric property
+          //GeoJSON features for districts need a property
           //called "di" with the district number
-          //Change this to use a different property name
+          //CHANGE THIS to use a different property name for a feature's district number
           propName = "di";
 
 
       //Projections by state
+      //CHANGE THIS
+      //At a minimum, change the scale and center of each
+      //Delete one of these if you only need one state.  Or, add more!
       if (state == "NJ") {
 
         projections.state = d3.geo.mercator()
-          .scale(2000.49687855884) //NJ statewide scale
-          .center([-74.7312335,40.15382869170064]) //projection center
+          .scale(2000.49687855884) //NJ statewide scale (CHANGE THIS)
+          .center([-74.7312335,40.15382869170064]) //projection center (CHANGE THIS)
           .translate([width/2,height/2])
 
       } else if (state == "NY") {
 
         projections.state = d3.geo.mercator()
-            .scale(720) //NY statewide scale
-            .center([-75.77004050000001,42.788207687920305]) //projection center
+            .scale(720) //NY statewide scale (CHANGE THIS)
+            .center([-75.77004050000001,42.788207687920305]) //projection center (CHANGE THIS)
             .translate([width/2,height/2])
 
         //Separate projection for NYC area
+        //CHANGE THIS - delete it if you don't need a city-wide zoom
         projections.city = d3.geo.mercator()
-            .scale(8000) //NYC area scale
-            .center([-73.97779999999999,40.70615417278643]) //projection center
+            .scale(8000) //NYC area scale (CHANGE THIS)
+            .center([-73.97779999999999,40.70615417278643]) //projection center (CHANGE THIS)
             .translate([width/2,height/2])
 
         paths.city = d3.geo.path()
@@ -170,8 +194,13 @@
           }
 
           districts.features = districts.features.map(function(d){
+
+              //Get the X/Y bounds of this district
               var b = paths.state.bounds(d);
 
+              //CHANGE THIS for a different state
+              //Delete it if you don't need a city-level zoom
+              //If it's in NYC, the path is zoomed in
               if (state == "NY" && inNYC(d.properties[propName])) {
                 b = paths.city.bounds(d);
               }
@@ -179,6 +208,8 @@
               //MAAAAAATH
               //Calculate the dimensions of the red rectangle
               //Adjust it if it would bleed out of the map
+              //CHANGE THIS if you want them sized differently
+              //If you want circles instead, figure out how to calculate the radius instead
 
               //Initial width/height
               var w = b[1][0]-b[0][0],
@@ -253,6 +284,9 @@
             });
 
         //Add red rectangles around districts
+        //CHANGE THIS
+        //Delete it if you don't want rectangles
+        //Or turn them into circles, or something
         groups.append("rect")
           .attr("x",function(d){
             return d.properties.x;
@@ -285,6 +319,8 @@
             return "statewide";
           }
 
+          //CHANGE THIS for your state
+          //Delete it if you don't need a city-level zoom
           if (type != "statewide" && state == "NY" && inNYC(districtNumber)) {
             return "city";
           }
@@ -301,6 +337,8 @@
       }
 
       //Is it a NYC area district?
+      //CHANGE THIS if you need a city-level zoom and have some other way of figuring out what districts get zoomed in
+      //Delete it if you don't need a city-level zoom
       function inNYC(districtNumber) {
         return state == "NY" && type != "statewide" && districtsInNYC[type].indexOf(districtNumber) !== -1;
       }
