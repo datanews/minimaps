@@ -79,8 +79,6 @@ Here's a config with more options:
 
 ## Required parameters
 
---------
-
 **foregroundFile**
 
 The path to the GeoJSON with your highlightable feature(s) in it.
@@ -103,11 +101,7 @@ The width for each image, in pixels.
 
 The height for each image, in pixels.
 
---------
-
 ## Optional parameters
-
---------
 
 **backgroundFile**
 
@@ -164,8 +158,6 @@ Set this to true to draw a box around each feature.  You can style the box (see 
 **format**
 
 What image format to save as. This can be `png`, `gif`, `jpeg`, or `pdf`.  Default is `png`.
-
---------
 
 # Styling
 
