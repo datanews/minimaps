@@ -81,7 +81,7 @@ Here's a config with more options:
 
 **foregroundFile**
 
-The path to the GeoJSON with your highlightable feature(s) in it.
+The path to the GeoJSON file with your highlightable feature(s) in it.
 
 **url**
 
@@ -99,7 +99,7 @@ The height for each image, in pixels.
 
 **backgroundFile**
 
-The path to the GeoJSON with your background feature(s) in it.
+The path to the GeoJSON file with your background feature(s) in it.
 
 If this is not set, there is no background layer.
 
