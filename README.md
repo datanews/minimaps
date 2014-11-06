@@ -81,25 +81,25 @@ Here's a config with more options:
 
 --------
 
-`foregroundFile`
+**foregroundFile**
 
 The path to the GeoJSON with your highlightable feature(s) in it.
 
 --------
 
-`url`
+**url**
 
 A URL (either local or remote) where `generate.html` can be loaded.
 
 --------
 
-`width`
+**width**
 
 The width for each image, in pixels.
 
 --------
 
-`height`
+**height**
 
 The height for each image, in pixels.
 
@@ -109,7 +109,7 @@ The height for each image, in pixels.
 
 --------
 
-`backgroundFile`
+**backgroundFile**
 
 The path to the GeoJSON with your background feature(s) in it.
 
@@ -117,7 +117,7 @@ If this is not set, there is no background layer.
 
 --------
 
-`padding`
+**padding**
 
 A minimum padding, in pixels, between the edge of your map and the actual edge of the image.  You may want some buffer, especially if you're including `useBox` to draw rectangles around them, some of which will extend beyond the map.
 
@@ -125,7 +125,7 @@ If this is not set, the minimum padding is 0.
 
 --------
 
-`propName`
+**propName**
 
 What property name should each feature's image be saved with?  If you set:
 
@@ -147,7 +147,7 @@ If you don't supply this, images will be saved with sequential numbers (`0.png`,
 
 --------
 
-`outputPrefix`
+**outputPrefix**
 
 You can include a prefix at the start of each filename.  For example, if you want to save files to the `png/` subfolder and you want each file to start with "counties-" you can use:
 
@@ -155,13 +155,13 @@ You can include a prefix at the start of each filename.  For example, if you wan
 
 --------
 
-`useBoxes`
+**useBoxes**
 
 Set this to true to draw a box around each feature.  You can style the box (see "Styling").
 
 --------
 
-`format`
+**format**
 
 What image format to save as. This can be `png`, `gif`, `jpeg`, or `pdf`.  Default is `png`.
 
