@@ -9,13 +9,18 @@
       */
       body {
         background-color: transparent;
+        background-color: #ccc;
+      }
+
+      svg {
+        border: 1px solid green;
       }
 
       /* 
         Style for background layer
         CHANGE THIS to make it something other than white
       */
-      g#background path {
+      g.background path {
         stroke: none;
         fill: #fff;
       }
@@ -24,7 +29,7 @@
         Style for the highlighted district
         CHANGE THIS to make it something other than black
       */
-      g.district path {
+      g.foreground path {
         fill: #000;
         stroke: none;
       }
@@ -46,44 +51,12 @@
         outline: 0;
       }
 
-      g.district {
+      g.foreground {
         display: none;
       }
 
-      g.district.show {
+      g.foreground.show {
         display: block;
-      }
-
-      body.statewide rect {
-        display: none;
-      }
-
-      .hidden {
-        display: none;
-      }
-
-      g#background path {
-        display: none;
-      }
-
-      g#background.state path.state {
-        display: block;
-      }
-
-      g#background.state path.city {
-        display: none;
-      }
-
-      g#background.city path.state {
-        display: none;
-      }
-
-      g#background.city path.city {
-        display: block;
-      }
-
-      g#background.statewide path {
-        display: none;
       }
 
     </style>
@@ -95,252 +68,188 @@
     <script src="http://project.wnyc.org/assets/js/jquery.url.min.js"></script>
     <script>
 
-      //Expect a URL like index.html?state=NY&type=house
-      //Optional: &district=1 to highlight district 1
-
-      
-      //Get URL params
-      var type = $.url.param("type"),
-          state = $.url.param("state"),
-          district = +$.url.param("district");
-
-      //NY maps are 120/96, NJ maps are 120x137
-      //CHANGE THIS to be the dimensions you want for your PNGs
-      var width = 120,
-          height = (state == "NJ" ? 137 : 96);
-
-      //Which districts should be zoomed in to NYC?
-      //CHANGE THIS for your data
-      //Delete it if you don't need a city-level zoom
-      var districtsInNYC = {
-            "house": d3.range(5,16), //districts 5-15 are in NYC
-            "state-senate": d3.range(10,35).concat([36]), //districts 10-34 and 36 are in NYC
-            "state-assembly": d3.range(23,88) //districts 23-87 are in NYC
-          };
-
       //Initialize stuff
-      var groups,
-          projections = {},
-          paths = {},
-          backgrounds = {},
-          //GeoJSON features for districts need a property
-          //called "di" with the district number
-          //CHANGE THIS to use a different property name for a feature's district number
-          propName = "di";
+      var projection,
+          path,
+          background,
+          foreground,
+          config,
+          q = queue();
 
+      d3.json("config.json",function(err,c){
+        if (err) {
+          return console.log(err);
+        }
 
-      //Projections by state
-      //CHANGE THIS
-      //At a minimum, change the scale and center of each
-      //Delete one of these if you only need one state.  Or, add more!
-      if (state == "NJ") {
+        config = c;
 
-        projections.state = d3.geo.mercator()
-          .scale(2000.49687855884) //NJ statewide scale (CHANGE THIS)
+        //Map projection, auto fit based on width, height, and the background or foreground layer
+        projection = d3.geo.mercator()
+          .scale(2000) //NJ statewide scale (CHANGE THIS)
           .center([-74.7312335,40.15382869170064]) //projection center (CHANGE THIS)
-          .translate([width/2,height/2])
+          .translate([config.width/2,config.height/2]);
 
-      } else if (state == "NY") {
+        if (config.backgroundFile) {
+          q.defer(d3.json,config.backgroundFile);
+        } else {
+          q.defer(empty);
+        }
 
-        projections.state = d3.geo.mercator()
-            .scale(720) //NY statewide scale (CHANGE THIS)
-            .center([-75.77004050000001,42.788207687920305]) //projection center (CHANGE THIS)
-            .translate([width/2,height/2])
+        if (config.foregroundFile) {
+          q.defer(d3.json,config.foregroundFile);
+        }
 
-        //Separate projection for NYC area
-        //CHANGE THIS - delete it if you don't need a city-wide zoom
-        projections.city = d3.geo.mercator()
-            .scale(8000) //NYC area scale (CHANGE THIS)
-            .center([-73.97779999999999,40.70615417278643]) //projection center (CHANGE THIS)
-            .translate([width/2,height/2])
+        q.await(initialize);
 
-        paths.city = d3.geo.path()
-            .projection(projections.city);
+      })
 
-      }
+      function initialize(err,bg,fg){
 
-      queue()
-        .defer(d3.json,"geo/"+state+"-"+type+".geojson")
-        .defer(d3.json,"geo/"+state+"-statewide.geojson")
-        .await(function(err,districts,background){
+        if (err) {
+          return console.log(err);
+        }
 
-          if (err) {
-            return console.log(err);
-          }
+        //Generate paths based on projection
+        path = d3.geo.path()
+            .projection(projection);
 
-          //Generate paths based on projection
-          paths.state = d3.geo.path()
-              .projection(projections.state);
+        var svg = d3.select("body").append("svg")
+                      .attr("width",config.width)
+                      .attr("height",config.height);
 
-          var svg = d3.select("body").attr("class",state+" "+type)
-                      .append("svg")
-                        .attr("width",width)
-                        .attr("height",height);
+        background = svg.append("g").attr("class","background");
 
-          backgrounds = svg.append("g").attr("id","background");
+        background.selectAll("path")
+          .data(bg.features)
+          .enter()
+            .append("path")
+            .attr("d",path);
 
-          backgrounds.append("path")
-            .datum(background.features[0])
-            .attr("class","state")
-            .attr("d",paths.state);
 
-          if (state == "NY") {
-
-            backgrounds.append("path")
-              .datum(background.features[0])
-              .attr("class","city")
-              .attr("d",paths.city);
-
-          }
-
-          districts.features = districts.features.map(function(d){
-
-              //Get the X/Y bounds of this district
-              var b = paths.state.bounds(d);
-
-              //CHANGE THIS for a different state
-              //Delete it if you don't need a city-level zoom
-              //If it's in NYC, the path is zoomed in
-              if (state == "NY" && inNYC(d.properties[propName])) {
-                b = paths.city.bounds(d);
-              }
-
-              //MAAAAAATH
-              //Calculate the dimensions of the red rectangle
-              //Adjust it if it would bleed out of the map
-              //CHANGE THIS if you want them sized differently
-              //If you want circles instead, figure out how to calculate the radius instead
-
-              //Initial width/height
-              var w = b[1][0]-b[0][0],
-                  h = b[1][1]-b[0][1];
-
-              //Expanded to be double the actual bounds, minimum 15px x 15px
-              var wx = Math.max(15,w*2),
-                  hx = Math.max(15,h*2);
-
-              d.properties.x = b[0][0]-((wx-w)/2);
-              d.properties.y = b[0][1]-((hx-h)/2);
-              d.properties.width = wx;
-              d.properties.height = hx;
-
-              //If the rectangle is past left edge, shrink the width
-              if (d.properties.x < 1) {
-
-                d.properties.x = 1;
-
-                d.properties.width = (2*(b[0][0]-d.properties.x))+(b[1][0]-b[0][0]);
-
-              }
-
-              //If the rectangle is past the right edge, shrink the width
-              if (d.properties.x+d.properties.width > width - 1) {
-
-                var xDiff = d.properties.x+d.properties.width - (width - 1);
-
-                d.properties.x += xDiff;
-                d.properties.width -= xDiff*2;
-
-              }
-
-              //If the rectangle is above the top edge, shrink the height
-              if (d.properties.y < 1) {
-
-                d.properties.y = 1;
-
-                d.properties.height = (2*(b[0][1]-d.properties.y))+(b[1][1]-b[0][1]);
-
-              }
-
-              //If the rectangle is below the bottom edge, shrink the height
-              if (d.properties.y+d.properties.height > height - 1) {
-
-                var yDiff = d.properties.y+d.properties.height - (height - 1);
-
-                d.properties.y += yDiff;
-                d.properties.height -= yDiff*2;
-
-              }
-
-              return d;
-
-          });
+        if (config.useBoxes) {
+          fg.features = fg.features.map(withBox);
+        }
 
         //Append individual districts
-        groups = svg.selectAll("g.district")
-           .data(districts.features)
+        foreground = svg.selectAll("g.foreground")
+           .data(fg.features)
            .enter()
            .append("g")
-            .attr("class","district");
+            .attr("class","foreground");
 
         //Black paths for districts
-        groups.append("path")
-           .attr("d",function(d){
-              if (state == "NY" && inNYC(d.properties[propName])) {
-                return paths.city(d);
-              }
-
-              return paths.state(d);
-            });
+        foreground.append("path")
+           .attr("d",path);
 
         //Add red rectangles around districts
-        //CHANGE THIS
-        //Delete it if you don't want rectangles
-        //Or turn them into circles, or something
-        groups.append("rect")
-          .attr("x",function(d){
-            return d.properties.x;
-          })
-          .attr("y",function(d){
-            return d.properties.y;
-          })
-          .attr("width",function(d){
-            return d.properties.width;
-          })
-          .attr("height",function(d){
-            return d.properties.height;
-          });
+        //You could make these circles instead, or something else crazy
+        if (config.useBoxes) {
+          foreground.append("rect")
+            .attr("x",function(d){
+              return d.minimapBox.x;
+            })
+            .attr("y",function(d){
+              return d.minimapBox.y;
+            })
+            .attr("width",function(d){
+              return d.minimapBox.width;
+            })
+            .attr("height",function(d){
+              return d.minimapBox.height;
+            });
+        }
 
         //If they're loading a specific district, show that
-        if (district) {
-          highlight(district);
+        if ($.url.param("highlight")) {
+          highlight($.url.param("highlight"));
         }
-        
 
-      });
+        highlight(2);
+
+      }
 
       //Highlight a specific district number
-      function highlight(districtNumber) {
+      function highlight(name) {
 
-        //Choose whether to show the state background, the city background, or no background (for statewide)
-        backgrounds.attr("class",function(){
-
-          if (type == "statewide") {
-            return "statewide";
-          }
-
-          //CHANGE THIS for your state
-          //Delete it if you don't need a city-level zoom
-          if (type != "statewide" && state == "NY" && inNYC(districtNumber)) {
-            return "city";
-          }
-
-          return "state";
-
-        });
-
-        //Show the feature (or the only feature, for statewide)
-        groups.classed("show",function(d){
-          return d.properties[propName] == districtNumber || type == "statewide";
+        //Show the feature
+        foreground.classed("show",function(d){
+          return d.properties[config.propName] && d.properties[config.propName]+"" == name+"";
         });
 
       }
 
-      //Is it a NYC area district?
-      //CHANGE THIS if you need a city-level zoom and have some other way of figuring out what districts get zoomed in
-      //Delete it if you don't need a city-level zoom
-      function inNYC(districtNumber) {
-        return state == "NY" && type != "statewide" && districtsInNYC[type].indexOf(districtNumber) !== -1;
+      //For a dummy response to queue
+      function empty(cb) {
+        cb(null,null);
+      }
+
+      //Calculates an x/y and width/height for a bounding rectangle around a feature
+      function withBox(d) {
+
+        //Get the X/Y bounds of this district
+        var b = path.bounds(d);
+
+        //MAAAAAATH
+        //Calculate the dimensions of the red rectangle
+        //Adjust it if it would bleed out of the map
+        //Change this if you want them sized differently
+        //If you want circles instead, figure out how to calculate the radius instead
+
+        //Initial width/height
+        var w = b[1][0]-b[0][0],
+            h = b[1][1]-b[0][1];
+
+        //Expanded to be double the actual bounds, minimum 15px x 15px
+        var minimapBox = {
+          "width": Math.max(15,w*2),
+          "height": Math.max(15,h*2)
+        };
+
+        minimapBox.x = b[0][0]-((minimapBox.width-w)/2);
+        minimapBox.y = b[0][1]-((minimapBox.height-h)/2);
+
+        //If the rectangle is past left edge, shrink the width
+        if (minimapBox.x < 1) {
+
+          minimapBox.x = 1;
+
+          minimapBox.width = (2*(b[0][0]-minimapBox.x))+(b[1][0]-b[0][0]);
+
+        }
+
+        //If the rectangle is past the right edge, shrink the width
+        if (minimapBox.x+minimapBox.width > config.width - 1) {
+
+          var xDiff = minimapBox.x+minimapBox.width - (config.width - 1);
+
+          minimapBox.x += xDiff;
+          minimapBox.width -= xDiff*2;
+
+        }
+
+        //If the rectangle is above the top edge, shrink the height
+        if (minimapBox.y < 1) {
+
+          minimapBox.y = 1;
+
+          minimapBox.height = (2*(b[0][1]-minimapBox.y))+(b[1][1]-b[0][1]);
+
+        }
+
+        //If the rectangle is below the bottom edge, shrink the height
+        if (minimapBox.y+minimapBox.height > config.height - 1) {
+
+          var yDiff = minimapBox.y+minimapBox.height - (config.height - 1);
+
+          minimapBox.y += yDiff;
+          minimapBox.height -= yDiff*2;
+
+        }
+
+        d.minimapBox = minimapBox;
+
+        return d;
+
       }
 
     </script>

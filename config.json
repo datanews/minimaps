@@ -1,0 +1,8 @@
+{
+  "backgroundFile": "geo/NJ-background.geojson",
+  "foregroundFile": "geo/NJ-house.geojson",
+  "width": 120,
+  "height": 137,
+  "propName": "di",
+  "useBoxes": true
+}
