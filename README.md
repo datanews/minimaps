@@ -16,10 +16,9 @@ The example configuration will draw minimaps of New Jersey House of Representati
 3. Edit `config.json` with your options (see "Configuration").
 4. Edit `style.css` with your preferred colors and styles (see "Styling").
 5. Run `phantomjs render.js` from your Terminal.
+6. Gaze upon your new minimaps and do the [dance of joy](https://www.youtube.com/watch?v=GfPg5LjGYz8).
 
-That's it!
-
-You can also preview what the minimaps will look like directly by viewing `generate.html` in a browser (see "Previewing").
+You can also preview what the minimaps will look like by viewing `generate.html` in a browser (see "Previewing").
 
 If you have questions, [ask us](https://twitter.com/veltman)!
 
