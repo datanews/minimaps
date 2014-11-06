@@ -3,7 +3,7 @@ Data News Minimapper
 
 The WNYC Data News team used this generator to make the minimaps for our [2014 election results page](http://project.wnyc.org/election2014/).
 
-![New Jersey](png/example.png)
+![New Jersey](png/example-with-background.png)
 
 It uses PhantomJS and a dummy webpage to draw a D3 map and save it as an image.
 
