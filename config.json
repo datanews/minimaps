@@ -1,8 +1,12 @@
 {
-  "backgroundFile": "geo/NJ-background.geojson",
   "foregroundFile": "geo/NJ-house.geojson",
+  "backgroundFile": "geo/NJ-background.geojson",
+  "url": "http://localhost/minimaps/generate.html",
   "width": 120,
   "height": 137,
-  "propName": "di",
-  "useBoxes": true
+  "padding": 10,
+  "propName": "House District",
+  "outputPrefix": "png/NJ-house",
+  "useBoxes": true,
+  "format": "png"
 }

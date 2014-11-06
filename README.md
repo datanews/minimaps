@@ -5,163 +5,224 @@ The WNYC Data News team used this generator to make the minimaps for our [2014 e
 
 ![New Jersey](png/example.png)
 
-It's currently set up to draw minimaps for New Jersey house districts, New York house districts, New York state assembly districts, New York state senate districts.  It can be customized for any other state or type of district (see below).
+It uses PhantomJS and a dummy webpage to draw a D3 map and save it as an image.
 
-# The really short version
+The example configuration will draw minimaps of New Jersey House of Representatives districts.
 
-`generate.html` draws a map based on GeoJSON files.  `render.js` is a [PhantomJS](http://phantomjs.org/) script that loads that page and uses it to draw a map for each district and save it as a PNG.
+# Quick start
 
-Read those two files to get an idea of how it works.  Every instance where you'd want to customize it is marked with a comment that says `CHANGE THIS`.
+1. Install [PhantomJS](http://phantomjs.org/).
+2. Get at least one GeoJSON file with the features you want minimaps for (see "Data").
+3. Edit `config.json` with your options (see "Configuration").
+4. Edit `style.css` with your preferred colors and styles (see "Styling").
+5. Run `phantomjs render.js` from your Terminal.
+
+That's it!
+
+You can also preview what the minimaps will look like directly by viewing `generate.html` in a browser (see "Previewing").
 
 If you have questions, [ask us](https://twitter.com/veltman)!
 
-# The pretty short version
+# Data
 
-`generate.html` needs to be servable by a web server (e.g. http://localhost/minimaps/generate.html)
+Your minimaps will be drawn based on GeoJSON files.  You can supply two:
 
-`generate.html` will generate an SVG map using D3.  You can style the maps (see below).  It takes a "state" and "type" parameter to tell it what kind of map you're drawing.
+* a **foreground** file.  This should have each feature you want to highlight.  If you want a minimap of New Jersey house districts, this should be a GeoJSON file of those districts.  THIS IS REQUIRED.
+* a **background** file.  This will be used to draw a background layer under the highlighted feature.  This will be the same for each minimap in the set.  So, if you want a minimap of New Jersey house districts, this could be the entire state of New Jersey.  This is optional.
 
-    generate.html?state=NY&type=house
+Without a background file:
 
-`generate.html` expects two GeoJSON files named:
+![New Jersey districts](png/example-without-background.png)
 
-    geo/[STATE]-statewide.geojson (used for the backdrop)
-    geo/[STATE]-[type].geojson (used to highlight districts)
+With a background file:
 
-So, for instance, if we want to do house, senate, and state assembly, in California, we could have:
+![New Jersey districts](png/example-with-background.png)
 
-    geo/CA-statewide.geojson
-    geo/CA-house.geojson
-    geo/CA-senate.geojson
-    geo/CA-state-assembly.geojson
+You need to set the path to each file in `config.json`:
 
-The "type" can be whatever you want, as long as its name in the GeoJSON file is the same as in `render.js` (see below).
+    "backgroundFile": "geo/NJ-background.geojson",
+    "foregroundFile": "geo/NJ-house.geojson"
 
-Each GeoJSON feature needs to have a property called `di` with the district number (you can change this, see below).
+The foreground and background can both be the same file:
 
-After installing [PhantomJS](http://phantomjs.org/), you can run `render.js`:
+    "backgroundFile": "geo/NJ-house.geojson",
+    "foregroundFile": "geo/NJ-house.geojson"
 
-    $ phantomjs render.js
+But if you do that, you may get weird little border artifacts in the background, so it's probably better to use a background file that merges everything into one feature (e.g. the whole state of New Jersey as a single feature).
 
-This will cycle through any map types you've defined inside `render.js`, and then, for each type, cycle through each district, rendering a minimap out to a separate PNG by district number.
+# Configuration
 
-So you will get:
+In `config.json`, you set the options that will determine how your maps look.  Here's a minimum example config:
 
-    png/CA-house-1.png
-    png/CA-house-2.png
-    etc.
-    png/CA-senate-1.png
-    png/CA-senate-2.png
-    etc.
-    png/CA-state-assembly-1.png
-    png/CA-state-assembly-2.png
-    etc.
+    {
+      "foregroundFile": "geo/NJ-house.geojson",
+      "url": "http://localhost/minimaps/generate.html",
+      "width": 120,
+      "height": 137
+    }
 
-# The long version
+This will produce a 120x137 PNG minimap for each house district in New Jersey, saved as `0.png`, `1.png`, `2.png`, etc.
 
-First, you need to install [PhantomJS](http://phantomjs.org/).
+Here's a config with more options:
 
-Then, you need at least two GeoJSON files: a foreground (the districts), and a background (the whole state):
+    {
+      "foregroundFile": "geo/NJ-house.geojson",
+      "backgroundFile": "geo/NJ-background.geojson",
+      "url": "http://localhost/minimaps/generate.html",
+      "width": 120,
+      "height": 137,
+      "padding": 10,
+      "propName": "House District",
+      "outputPrefix": "png/NJ-house",
+      "useBoxes": true,
+      "format": "gif"
+    }
 
-The background file should be saved as `geo/[STATE]-statewide.geojson` and have a FeatureCollection with one feature in it, the entire state.  The properties of that feature don't matter.
+## Required parameters
 
-The foreground files should be saved as `geo/[STATE]-[TYPE OF DISTRICT].geojson` and have a FeatureCollection with any number of features in it, one per district.  Each district should have a property with the district number or name.  Currently the code assumes that property is called `di`:
+--------
+
+`foregroundFile`
+
+The path to the GeoJSON with your highlightable feature(s) in it.
+
+--------
+
+`url`
+
+A URL (either local or remote) where `generate.html` can be loaded.
+
+--------
+
+`width`
+
+The width for each image, in pixels.
+
+--------
+
+`height`
+
+The height for each image, in pixels.
+
+--------
+
+## Optional parameters
+
+--------
+
+`backgroundFile`
+
+The path to the GeoJSON with your background feature(s) in it.
+
+If this is not set, there is no background layer.
+
+--------
+
+`padding`
+
+A minimum padding, in pixels, between the edge of your map and the actual edge of the image.  You may want some buffer, especially if you're including `useBox` to draw rectangles around them, some of which will extend beyond the map.
+
+If this is not set, the minimum padding is 0.
+
+--------
+
+`propName`
+
+What property name should each feature's image be saved with?  If you set:
+
+    "propName": "county"
+
+and your feature has:
 
     {
       "type": "Feature",
       "properties": {
-        "di": 13,
-        "whatever": "Who cares? This is district 13, BTW."
+        "county": "Rockland"
       },
-      "geometry": {
-        ...
-      }
+      "geometry": ...
     }
 
-You can call it something other than `di` if you want (see below).
+You will end up with a file named `Rockland.png` for that feature.
 
-Then, you need to change at least the following things in `render.js`:
+If you don't supply this, images will be saved with sequential numbers (`0.png`, `1.png`, etc.).
 
-* The width/height.  Currently it's hardcoded for 120x137 maps of New Jersey and 120x96 maps of New York. (see "Sizing and projections" below)
-* The `mapTypes` array, to be the states+district types you want
+--------
 
-Optional:
+`outputPrefix`
 
-* Change the `var filename = ...` line, if you want to name your PNGs with a different convention
-* Change `d.properties.di` to `d.properties.SOMETHING_ELSE` if the property of your GeoJSON features with the district number is called SOMETHING_ELSE instead
-* It will try to find `generate.html` at `http://localhost/minimaps/generate.html`.  If it's located elsewhere, change that URL.
+You can include a prefix at the start of each filename.  For example, if you want to save files to the `png/` subfolder and you want each file to start with "counties-" you can use:
 
-Then, you need to change at least the following things in `generate.html`:
+    "outputPrefix": "png/counties-"
 
-* The map projections to be appropriate for your state(s) (see "Sizing and projections" below).
-* There are currently two different map projections, depending on whether a district is in New York City or not.  If it's in NYC, it shows up on a zoomed-in city map instead of as a tiny dot on a statewide map.  If this situation applies to you, modify `projections.city`, the `inNYC()` function and the `districtsInNYC` variable.  If it doesn't apply to you, excise all that code or just make sure the `inNYC()` function always returns false.
+--------
 
-Optional:
+`useBoxes`
 
-* Change `propName` from `di` to `SOMETHING_ELSE` if the property of your GeoJSON features with the district number is called `SOMETHING_ELSE` instead
-* Change the styling (see "Styling" below).
-* Add lots of different special zoom levels, if you're into that sort of thing.
+Set this to true to draw a box around each feature.  You can style the box (see "Styling").
 
-# Sizing and projections
+--------
 
-This has width/height for the resulting images hardcoded into both `render.js` and `generate.html` (New Jersey is 120x137, New York is 120x96).  You should replace these with your own map dimensions in both places.
+`format`
 
-`generate.html` also has hardcoded map projections for NY and NJ.  You need to update them:
+What image format to save as. This can be `png`, `gif`, `jpeg`, or `pdf`.  Default is `png`.
 
-    projections.state = d3.geo.mercator()
-      .scale(2000.49687855884) //this is the scale for fitting NY into a 120x96 box. CHANGE THIS.
-      .center([-74.7312335,40.15382869170064]) //this is the center of NY. CHANGE THIS.
-      .translate([width/2,height/2]);
-
-You'll definitely need to change the `.center()` and `.scale()` to be appropriate for your state(s).  You can change other stuff if you want ([D3 geo projection wiki](https://github.com/mbostock/d3/wiki/Geo-Projections)).
-
-To get a head start on choosing a good projection, you can throw your GeoJSON into [Mapstarter](http://mapstarter.com/), set your map size in the "Size" tab, and then look at the projection used in the code in the "Download" tab.
+--------
 
 # Styling
 
-In this version, the background is white, the district is black, and the rectangle around it is a 1px red box.  You could change all of these things by modifying the `stroke` and `fill` of each in the CSS at the top of `generate.html`.
+In the example config, the background is white, the district is black, and the rectangle around it is a 1px red box. You can change all of these things by editing `style.css`.
+
+Changing the value of `stroke` will change the color of the border around something.
+
+Setting `stroke-width` will determine the width of that border.
+
+Setting `fill` will change the fill color.
+
+For example:
+
+    .background {
+      stroke: yellow;
+      fill: skyblue;
+    }
+
+    .foreground {
+      fill: fuchsia;
+      stroke: lime;
+    }
+
+    .box {
+      stroke-width: 1px;
+      stroke: orange;
+    }
 
 ![Neon Jersey](png/example-neon.png)
 
-You could also modify the code more substantially to, say, make the rectangles circles, or do other fun things.
+You can set an overall background color for the image by changing the body's background color:
 
-# Previewing a specific map
+    body {
+      background-color: white;
+    }
 
-If you want to debug `generate.html`, you can use it to preview a specific map by loading it with a `state`, `type`, and `district`:
+The default is transparent, which is only supported if your format is `png` or `gif`.  If you're making `jpg`s instead, make sure to set a background color.
 
-    generate.html?state=TX&type=house&district=5
+# Previewing
 
-This will show you that map.  It assumes your district is a number (and is also a number in d.properties.WHATEVER in your GeoJSON).  If it's not:
+If you want to preview your maps, you can load `generate.html` with a `preview` parameter:
 
-    generate.html?state=TX&type=county&district=Austin
+    generate.html?preview
 
-Then you need to change:
+This will rotate every 500ms, cycling through each map indefinitely, as a quick preview.
 
-    district = +$.url.param("district");
+If you want to preview the map for a specific feature, you need to supply the value for `propName` (if that's been configured), or the zero-based index of the feature:
 
-to
+    //"propName": "county"
+    generate.html?preview=Rockland
+    
+    //No propName in config.json, just preview the first feature
+    generate.html?preview=0
 
-    district = $.url.param("district");
-
-so it doesn't get converted to a number.
-
-# Doing this for something besides districts in states
-
-There's nothing that says the "state" has to be a state.  If you want to do swamps in Middle Earth, that's fine too.  "state" just means the outer, background shape.  If you have:
-
-    geo/MIDDLE-EARTH-swamps.geojson
-    geo/MIDDLE-EARTH-statewide.geojson
-
-And in `render.js` you have:
-
-    mapTypes = [
-      {
-        "state": "MIDDLE-EARTH",
-        "type": "swamps"
-      }
-    ];
-
-You'll be OK.
+    //No propName in config.json, just preview the second feature
+    generate.html?preview=1
 
 # About file size
 

@@ -2,60 +2,19 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <link rel="stylesheet" href="style.css" type="text/css">
     <style>
-
-      /*
-        CHANGE THIS to give your minimaps a background color behind the map
-      */
-      body {
-        background-color: transparent;
-        background-color: #ccc;
-      }
-
-      svg {
-        border: 1px solid green;
-      }
-
-      /* 
-        Style for background layer
-        CHANGE THIS to make it something other than white
-      */
-      g.background path {
-        stroke: none;
-        fill: #fff;
-      }
-
-      /* 
-        Style for the highlighted district
-        CHANGE THIS to make it something other than black
-      */
-      g.foreground path {
-        fill: #000;
-        stroke: none;
-      }
-
-      /* 
-        Style for the rectangle around the highlighted district
-        CHANGE THIS to make it something other than a sharp 1px red rectangle
-      */
-      rect {
-        stroke-width: 1px;
-        stroke: #e51133;
-        fill: none;
-        shape-rendering: crispEdges;
-      }
-
       * {
         margin: 0;
         padding: 0;
         outline: 0;
       }
 
-      g.foreground {
+      g.foreground-group {
         display: none;
       }
 
-      g.foreground.show {
+      g.foreground-group.show {
         display: block;
       }
 
@@ -69,11 +28,11 @@
     <script>
 
       //Initialize stuff
-      var projection,
-          path,
+      var path,
           background,
           foreground,
           config,
+          mapReady,
           q = queue();
 
       d3.json("config.json",function(err,c){
@@ -83,12 +42,6 @@
 
         config = c;
 
-        //Map projection, auto fit based on width, height, and the background or foreground layer
-        projection = d3.geo.mercator()
-          .scale(2000) //NJ statewide scale (CHANGE THIS)
-          .center([-74.7312335,40.15382869170064]) //projection center (CHANGE THIS)
-          .translate([config.width/2,config.height/2]);
-
         if (config.backgroundFile) {
           q.defer(d3.json,config.backgroundFile);
         } else {
@@ -97,6 +50,8 @@
 
         if (config.foregroundFile) {
           q.defer(d3.json,config.foregroundFile);
+        } else {
+          throw new Error("You need to supply a foreground file!");
         }
 
         q.await(initialize);
@@ -110,38 +65,42 @@
         }
 
         //Generate paths based on projection
-        path = d3.geo.path()
-            .projection(projection);
+        path = getPath(fg);
 
         var svg = d3.select("body").append("svg")
                       .attr("width",config.width)
                       .attr("height",config.height);
 
-        background = svg.append("g").attr("class","background");
+        //Add a background layer
+        if (bg) {
 
-        background.selectAll("path")
-          .data(bg.features)
-          .enter()
-            .append("path")
-            .attr("d",path);
+          svg.append("g")
+              .selectAll("path")
+                .data(bg.features)
+                .enter()
+                .append("path")
+                  .attr("d",path)
+                  .attr("class","background");
 
+        }
 
+        //If they want rectangles, do that math
         if (config.useBoxes) {
           fg.features = fg.features.map(withBox);
         }
 
-        //Append individual districts
-        foreground = svg.selectAll("g.foreground")
+        //Append individual featuers to highlight
+        foreground = svg.selectAll("g.foreground-group")
            .data(fg.features)
            .enter()
            .append("g")
-            .attr("class","foreground");
+            .attr("class","foreground-group");
 
-        //Black paths for districts
         foreground.append("path")
-           .attr("d",path);
+           .attr("d",path)
+           .attr("class","foreground");
 
-        //Add red rectangles around districts
+        //If they want rectangles, add them
         //You could make these circles instead, or something else crazy
         if (config.useBoxes) {
           foreground.append("rect")
@@ -156,15 +115,42 @@
             })
             .attr("height",function(d){
               return d.minimapBox.height;
-            });
+            })
+            .attr("class","box");
         }
+
+        var preview = $.url.param("preview");
 
         //If they're loading a specific district, show that
-        if ($.url.param("highlight")) {
-          highlight($.url.param("highlight"));
+        if (preview) {
+
+          if (preview === "undefined") {
+
+              var values = foreground.data().map(function(d,i){
+                if (config.propName) {
+                  return d.properties[config.propName];
+                } else {
+                  return i;
+                }
+                
+              });
+
+              setInterval(function(){
+                var val = values.shift();
+                highlight(val);
+                values.push(val);
+              },500);
+
+
+          } else {
+
+            highlight($.url.param("preview"));
+
+          }
+
         }
 
-        highlight(2);
+        mapReady = true;
 
       }
 
@@ -172,8 +158,11 @@
       function highlight(name) {
 
         //Show the feature
-        foreground.classed("show",function(d){
-          return d.properties[config.propName] && d.properties[config.propName]+"" == name+"";
+        foreground.classed("show",function(d,i){
+          if (config.propName) {
+            return d.properties[config.propName] && d.properties[config.propName]+"" == name+"";
+          }
+          return i == +name;
         });
 
       }
@@ -249,6 +238,41 @@
         d.minimapBox = minimapBox;
 
         return d;
+
+      }
+
+      //Auto generate a d3 path function based on a feature set
+      //Scales based on features
+      //Mercator only right now
+      function getPath(features) {
+
+        //Projection at unit scale
+        var projection = d3.geo.mercator().scale(1).translate([0, 0]),
+            newPath = d3.geo.path().projection(projection),
+            ratio = 1;
+
+        //Factor padding into scale;
+        if (config.padding) {
+          var wRatio = (config.width-(+config.padding*2))/config.width,
+              hRatio = (config.height-(+config.padding*2))/config.height;
+          
+          ratio = Math.min(wRatio,hRatio);
+        }
+
+        //Find the max scale based on data bounds at unit scale, with 5% padding
+        var b = newPath.bounds(features),
+            s = Math.min(wRatio,hRatio) / Math.max((b[1][0] - b[0][0]) / config.width, (b[1][1] - b[0][1]) / config.height),
+            t = [(config.width - s * (b[1][0] + b[0][0])) / 2, (config.height - s * (b[1][1] + b[0][1])) / 2];
+
+        projection.scale(s);
+
+        var inv = projection.invert([config.width/2 - t[0], config.height/2 - t[1]]);
+
+        projection.center(inv);
+
+        projection.translate([config.width/2,config.height/2]);
+
+        return newPath;
 
       }
 

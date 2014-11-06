@@ -1,0 +1,37 @@
+/* 
+  Background color for the entire image
+  Default: transparent
+*/
+body {
+  background-color: transparent;
+  background-color: #ddd;
+}
+
+/* 
+  Style for background layer
+  Default: white with no border
+*/
+.background {
+  stroke: none;
+  fill: #fff;
+}
+
+/* 
+  Style for the highlighted feature
+  Default: black with no border
+*/
+.foreground {
+  fill: #000;
+  stroke: none;
+}
+
+/* 
+  Style for the rectangle around the highlighted feature
+  Default: crisp red 1px outline
+*/
+.box {
+  stroke-width: 1px;
+  stroke: #e51133;
+  fill: none;
+  shape-rendering: crispEdges;
+}
